@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "LLMs-for-fun"
+  site-url: "https://galopyz.github.io/LLMs-for-fun"
+  description: "After LLMs-from-scratch, it is time to have fun."
+  repo-branch: main
+  repo-url: "https://github.com/galopyz/LLMs-for-fun"
