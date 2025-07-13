@@ -1,0 +1,72 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "LLMs-for-fun",
+    "section": "",
+    "text": "This file will become your README and also the index of your documentation.",
+    "crumbs": [
+      "LLMs-for-fun"
+    ]
+  },
+  {
+    "objectID": "index.html#developer-guide",
+    "href": "index.html#developer-guide",
+    "title": "LLMs-for-fun",
+    "section": "Developer Guide",
+    "text": "Developer Guide\nIf you are new to using nbdev here are some useful pointers to get you started.\n\nInstall LLMs_for_fun in Development mode\n# make sure LLMs_for_fun package is installed in development mode\n$ pip install -e .\n\n# make changes under nbs/ directory\n# ...\n\n# compile to have changes apply to LLMs_for_fun\n$ nbdev_prepare",
+    "crumbs": [
+      "LLMs-for-fun"
+    ]
+  },
+  {
+    "objectID": "index.html#usage",
+    "href": "index.html#usage",
+    "title": "LLMs-for-fun",
+    "section": "Usage",
+    "text": "Usage\n\nInstallation\nInstall latest from the GitHub repository:\n$ pip install git+https://github.com/galopyz/LLMs-for-fun.git\nor from conda\n$ conda install -c galopyz LLMs_for_fun\nor from pypi\n$ pip install LLMs_for_fun\n\n\nDocumentation\nDocumentation can be found hosted on this GitHub repository’s pages. Additionally you can find package manager specific guidelines on conda and pypi respectively.",
+    "crumbs": [
+      "LLMs-for-fun"
+    ]
+  },
+  {
+    "objectID": "index.html#how-to-use",
+    "href": "index.html#how-to-use",
+    "title": "LLMs-for-fun",
+    "section": "How to use",
+    "text": "How to use\nFill me in please! Don’t forget code examples:\n\n1+1\n\n2",
+    "crumbs": [
+      "LLMs-for-fun"
+    ]
+  },
+  {
+    "objectID": "core.html",
+    "href": "core.html",
+    "title": "core",
+    "section": "",
+    "text": "In this notebook, we will go through code we learned from LLMs-from-scratch.",
+    "crumbs": [
+      "core"
+    ]
+  },
+  {
+    "objectID": "core.html#ch-2-working-with-text-data",
+    "href": "core.html#ch-2-working-with-text-data",
+    "title": "core",
+    "section": "Ch, 2: Working with Text Data",
+    "text": "Ch, 2: Working with Text Data\nWe will use simple numbers as text data and train it. In the book, we used verdict story.\nTo create the data, use this command:\nseq -s ', ' 0 3000 &gt; numbers.txt\nThis creates numbers from 0 to 3000 separated by ‘,’.\n\nwith open(\"numbers.txt\", \"r\", encoding=\"utf-8\") as f:\n    raw_text = f.read()\nraw_text[:99]\n\n'0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 2'\n\n\n\nvocab = {str(n):n for n in range(10)}\nvocab.update({',': 10, ' ': 11})\nvocab\n\n{'0': 0,\n '1': 1,\n '2': 2,\n '3': 3,\n '4': 4,\n '5': 5,\n '6': 6,\n '7': 7,\n '8': 8,\n '9': 9,\n ',': 10,\n ' ': 11}\n\n\n\nsamp = raw_text[:30]\nsamp\n\n'0, 1, 2, 3, 4, 5, 6, 7, 8, 9, '\n\n\nHere is a simple tokenizer which encodes text into tokens or decodes tokens into text. The reason we have to tokenize text into numbers is computers cannot directly use characters to train neural network. So we turn them into numbers.\n\nclass SimpleTokenizer:\n    def __init__(self, vocab):\n        self.str_to_int = vocab\n        self.int_to_str = {v:k for k,v in vocab.items()}\n    \n    def encode(self, text): return [vocab[o] for o in samp]\n    \n    def decode(self, tokens): return ''.join([int_to_str[o] for o in tokens])\n\n\ntokenizer = SimpleTokenizer(vocab)\ntokenizer.encode(samp)\n\n[0,\n 10,\n 11,\n 1,\n 10,\n 11,\n 2,\n 10,\n 11,\n 3,\n 10,\n 11,\n 4,\n 10,\n 11,\n 5,\n 10,\n 11,\n 6,\n 10,\n 11,\n 7,\n 10,\n 11,\n 8,\n 10,\n 11,\n 9,\n 10,\n 11]\n\n\n\ntokenizer.decode(tokenizer.encode(samp))\n\n'0, 1, 2, 3, 4, 5, 6, 7, 8, 9, '\n\n\nThe tokenizer looks good. Let’s move on to Dataset. Dataset provides us with input and target. Target is simply the next token from the input because we want to predict the next token given the input. In this example, our dataset also tokenizes the text, but tokenization does not have to happen inside of dataset. In practice, text data are pretokenized.\n\nclass SimpleDataset(Dataset):\n    def __init__(self, txt, tokenizer, max_length):\n        self.input_ids = []\n        self.target_ids = []\n\n        token_ids = tokenizer.encode(txt)\n        assert len(token_ids) &gt; max_length, \"Number of tokenized inputs must at least be equal to max_length+1\"\n\n        for i in range(0, len(token_ids) - max_length, max_length):\n            input_chunk = token_ids[i:i + max_length]\n            target_chunk = token_ids[i + 1: i + max_length + 1]\n            self.input_ids.append(torch.tensor(input_chunk))\n            self.target_ids.append(torch.tensor(target_chunk))\n\n    def __len__(self): return len(self.input_ids)\n\n    def __getitem__(self, idx): return self.input_ids[idx], self.target_ids[idx]\n\n\nds = SimpleDataset(samp, tokenizer, 4)\nds[0]\n\n(tensor([ 0, 10, 11,  1]), tensor([10, 11,  1, 10]))\n\n\nNext, we have a data loader. The data loader wraps data we got from dataset together into batches. We can also shuffle for training data or leave them as they are for validation or test.\n\ndef mk_dataloader(txt, tokenizer, batch_size=4, max_length=256, \n                  shuffle=True, drop_last=True, num_workers=0):\n    return DataLoader(\n        dataset=SimpleDataset(txt, tokenizer, max_length),\n        batch_size=batch_size,\n        shuffle=shuffle,\n        drop_last=drop_last,\n        num_workers=num_workers\n    )\n\n\ndl = mk_dataloader(samp, tokenizer, batch_size=2, max_length=4)\nxb, yb = next(iter(dl))\nxb, yb\n\n(tensor([[10, 11,  2, 10],\n         [10, 11,  6, 10]]),\n tensor([[11,  2, 10, 11],\n         [11,  6, 10, 11]]))",
+    "crumbs": [
+      "core"
+    ]
+  },
+  {
+    "objectID": "core.html#ch.-3-coding-attention-mechanisms",
+    "href": "core.html#ch.-3-coding-attention-mechanisms",
+    "title": "core",
+    "section": "Ch. 3: Coding Attention Mechanisms",
+    "text": "Ch. 3: Coding Attention Mechanisms\nBy using attention mechanisms, the model figures out which token to pay more attention to. For instance, in our numbers example, paying attention to the last digit of the sequence is very important.\n\nclass MultiHeadAttention(nn.Module):\n    def __init__(self, d_in, d_out, context_length, dropout, num_heads, qkv_bias=False):\n        super().__init__()\n        assert (d_out % num_heads == 0), \\\n            \"d_out must be divisible by num_heads\"\n\n        self.d_out = d_out\n        self.num_heads = num_heads\n        self.head_dim = d_out // num_heads # Reduce the projection dim to match desired output dim\n\n        self.W_query = nn.Linear(d_in, d_out, bias=qkv_bias)\n        self.W_key = nn.Linear(d_in, d_out, bias=qkv_bias)\n        self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)\n        self.out_proj = nn.Linear(d_out, d_out)  # Linear layer to combine head outputs\n        self.dropout = nn.Dropout(dropout)\n        self.register_buffer(\n            \"mask\",\n            torch.triu(torch.ones(context_length, context_length),\n                       diagonal=1)\n        )\n\n    def forward(self, x):\n        b, num_tokens, d_in = x.shape\n        # As in `CausalAttention`, for inputs where `num_tokens` exceeds `context_length`, \n        # this will result in errors in the mask creation further below. \n        # In practice, this is not a problem since the LLM (chapters 4-7) ensures that inputs  \n        # do not exceed `context_length` before reaching this forwar\n\n        keys = self.W_key(x) # Shape: (b, num_tokens, d_out)\n        queries = self.W_query(x)\n        values = self.W_value(x)\n\n        # We implicitly split the matrix by adding a `num_heads` dimension\n        # Unroll last dim: (b, num_tokens, d_out) -&gt; (b, num_tokens, num_heads, head_dim)\n        keys = keys.view(b, num_tokens, self.num_heads, self.head_dim) \n        values = values.view(b, num_tokens, self.num_heads, self.head_dim)\n        queries = queries.view(b, num_tokens, self.num_heads, self.head_dim)\n\n        # Transpose: (b, num_tokens, num_heads, head_dim) -&gt; (b, num_heads, num_tokens, head_dim)\n        keys = keys.transpose(1, 2)\n        queries = queries.transpose(1, 2)\n        values = values.transpose(1, 2)\n\n        # Compute scaled dot-product attention (aka self-attention) with a causal mask\n        attn_scores = queries @ keys.transpose(2, 3)  # Dot product for each head\n\n        # Original mask truncated to the number of tokens and converted to boolean\n        mask_bool = self.mask.bool()[:num_tokens, :num_tokens]\n\n        # Use the mask to fill attention scores\n        attn_scores.masked_fill_(mask_bool, -torch.inf)\n        \n        attn_weights = torch.softmax(attn_scores / keys.shape[-1]**0.5, dim=-1)\n        attn_weights = self.dropout(attn_weights)\n\n        # Shape: (b, num_tokens, num_heads, head_dim)\n        context_vec = (attn_weights @ values).transpose(1, 2) \n        \n        # Combine heads, where self.d_out = self.num_heads * self.head_dim\n        context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out)\n        context_vec = self.out_proj(context_vec) # optional projection\n\n        return context_vec",
+    "crumbs": [
+      "core"
+    ]
+  }
+]
